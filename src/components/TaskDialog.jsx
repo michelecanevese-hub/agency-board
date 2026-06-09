@@ -17,6 +17,7 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
   const isNew = !task?.id
 
   const [title,       setTitle]       = useState('')
+  const [description, setDescription] = useState('')
   const [projectName, setProjectName] = useState('')
   const [priority,    setPriority]    = useState('medium')
   const [dueDate,     setDueDate]     = useState('')
@@ -30,10 +31,10 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
   const [projects,    setProjects]    = useState([])
   const bottomRef = useRef(null)
 
-  // Load existing data when task changes
   useEffect(() => {
     if (!open) return
     setTitle(task?.title || '')
+    setDescription(task?.description || '')
     setProjectName(task?.project_name || '')
     setPriority(task?.priority || 'medium')
     setDueDate(task?.due_date || '')
@@ -43,12 +44,10 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
     setNewComment('')
   }, [task, open])
 
-  // Load comments when switching to Notes tab
   useEffect(() => {
     if (tab === 1 && task?.id) loadComments()
   }, [tab, task?.id])
 
-  // Load all project names for autocomplete
   useEffect(() => {
     if (!open) return
     supabase.from('tasks').select('project_name').neq('project_name', null)
@@ -62,9 +61,7 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
     if (!task?.id) return
     setLoadingCom(true)
     const { data } = await supabase
-      .from('comments')
-      .select('*')
-      .eq('task_id', task.id)
+      .from('comments').select('*').eq('task_id', task.id)
       .order('created_at', { ascending: true })
     setComments(data || [])
     setLoadingCom(false)
@@ -76,6 +73,7 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
     setSaving(true)
     const payload = {
       title:        title.trim(),
+      description:  description.trim() || null,
       project_name: projectName.trim() || null,
       priority,
       due_date:     dueDate || null,
@@ -83,10 +81,12 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
     }
     let saved
     if (isNew) {
-      const { data } = await supabase.from('tasks').insert([{ ...payload, position: Date.now() }]).select().single()
+      const { data } = await supabase.from('tasks')
+        .insert([{ ...payload, position: Date.now() }]).select().single()
       saved = data
     } else {
-      const { data } = await supabase.from('tasks').update(payload).eq('id', task.id).select().single()
+      const { data } = await supabase.from('tasks')
+        .update(payload).eq('id', task.id).select().single()
       saved = data
     }
     setSaving(false)
@@ -138,17 +138,24 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
       <DialogContent sx={{ pt: 2 }}>
         {tab === 0 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {/* Title */}
             <TextField
               label="Titolo task"
               value={title}
               onChange={e => setTitle(e.target.value)}
-              fullWidth
-              autoFocus
-              required
+              fullWidth autoFocus required
             />
 
-            {/* Project autocomplete */}
+            <TextField
+              label="Descrizione"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+              maxRows={5}
+              placeholder="Aggiungi una descrizione dell'attività…"
+            />
+
             <Autocomplete
               freeSolo
               options={projects}
@@ -157,7 +164,6 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
               renderInput={params => <TextField {...params} label="Progetto" />}
             />
 
-            {/* Employee */}
             <FormControl fullWidth>
               <InputLabel>Assegnato a</InputLabel>
               <Select value={employeeId} label="Assegnato a" onChange={e => setEmployeeId(e.target.value)}>
@@ -174,7 +180,6 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
               </Select>
             </FormControl>
 
-            {/* Priority + Due date */}
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormControl sx={{ flex: 1 }}>
                 <InputLabel>Priorità</InputLabel>
@@ -200,8 +205,7 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
         )}
 
         {tab === 1 && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', height: 340 }}>
-            {/* Comments list */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: 360 }}>
             <Box sx={{ flex: 1, overflowY: 'auto', mb: 1 }}>
               {loadingCom ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', pt: 4 }}>
@@ -239,7 +243,6 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
 
             <Divider sx={{ mb: 1.5 }} />
 
-            {/* Author selector */}
             <FormControl size="small" sx={{ mb: 1 }}>
               <InputLabel>Scrivi come</InputLabel>
               <Select value={author} label="Scrivi come" onChange={e => setAuthor(e.target.value)}>
@@ -256,14 +259,10 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
               </Select>
             </FormControl>
 
-            {/* Input */}
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
               <TextField
-                multiline
-                maxRows={3}
-                fullWidth
-                size="small"
-                placeholder="Scrivi una nota..."
+                multiline maxRows={3} fullWidth size="small"
+                placeholder="Scrivi una nota…"
                 value={newComment}
                 onChange={e => setNewComment(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendComment() } }}

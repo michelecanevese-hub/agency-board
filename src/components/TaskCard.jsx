@@ -25,8 +25,8 @@ export default function TaskCard({ task, commentCount = 0, onClick }) {
   const projectColor = task.project_name ? stringToColor(task.project_name) : '#78909C'
 
   const dueDate = task.due_date ? new Date(task.due_date + 'T00:00:00') : null
-  const isOverdue  = dueDate && isPast(dueDate)
-  const isSoon     = dueDate && !isOverdue && isWithinInterval(dueDate, {
+  const isOverdue = dueDate && isPast(dueDate)
+  const isSoon    = dueDate && !isOverdue && isWithinInterval(dueDate, {
     start: new Date(), end: addDays(new Date(), 2),
   })
 
@@ -63,9 +63,28 @@ export default function TaskCard({ task, commentCount = 0, onClick }) {
         )}
 
         {/* Title */}
-        <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.3, mb: 1 }}>
+        <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.3, mb: 0.5 }}>
           {task.title}
         </Typography>
+
+        {/* Description preview — max 2 lines */}
+        {task.description && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              lineHeight: 1.4,
+              mb: 0.75,
+              fontSize: '0.7rem',
+            }}
+          >
+            {task.description}
+          </Typography>
+        )}
 
         {/* Footer row */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
@@ -99,7 +118,6 @@ export default function TaskCard({ task, commentCount = 0, onClick }) {
           <Box
             className="task-actions"
             sx={{ display: 'flex', opacity: 0, transition: 'opacity 0.15s' }}
-            // Stop drag from triggering when clicking buttons
             onPointerDown={e => e.stopPropagation()}
           >
             {commentCount > 0 && (

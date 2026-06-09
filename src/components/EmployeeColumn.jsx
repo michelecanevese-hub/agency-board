@@ -14,7 +14,7 @@ export default function EmployeeColumn({ employee, tasks, commentCounts, onAddTa
   return (
     <Box
       sx={{
-        width: 220,
+        width: 260,
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -64,12 +64,12 @@ export default function EmployeeColumn({ employee, tasks, commentCounts, onAddTa
         </Box>
       </Paper>
 
-      {/* Drop zone */}
+      {/* Drop zone — always has ref so empty columns accept drops */}
       <Box
         ref={setNodeRef}
         sx={{
           flex: 1,
-          minHeight: 80,
+          minHeight: 120,
           borderRadius: 2,
           border: '2px dashed',
           borderColor: isOver ? 'primary.main' : 'transparent',
@@ -77,6 +77,8 @@ export default function EmployeeColumn({ employee, tasks, commentCounts, onAddTa
           transition: 'all 0.15s',
           p: 0.5,
           overflowY: 'auto',
+          '&::-webkit-scrollbar': { width: 4 },
+          '&::-webkit-scrollbar-thumb': { borderRadius: 2, bgcolor: 'divider' },
         }}
       >
         <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
@@ -91,9 +93,19 @@ export default function EmployeeColumn({ employee, tasks, commentCounts, onAddTa
         </SortableContext>
 
         {tasks.length === 0 && (
-          <Box sx={{ textAlign: 'center', py: 3 }}>
-            <Typography variant="caption" color="text.disabled">
-              Nessun task
+          <Box
+            sx={{
+              textAlign: 'center',
+              py: 4,
+              border: '1.5px dashed',
+              borderColor: isOver ? 'primary.main' : 'divider',
+              borderRadius: 2,
+              bgcolor: isOver ? 'primary.main' + '08' : 'transparent',
+              transition: 'all 0.15s',
+            }}
+          >
+            <Typography variant="caption" color={isOver ? 'primary.main' : 'text.disabled'}>
+              {isOver ? 'Rilascia qui' : 'Nessun task'}
             </Typography>
           </Box>
         )}
