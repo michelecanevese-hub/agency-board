@@ -10,15 +10,21 @@ export const EMPLOYEES = [
   { id: 'stage',      name: 'Stage',                role: 'Generalist' },
 ]
 
+export const WORK_STATUSES = [
+  { value: 'in_progress', label: 'In Progress', color: '#42A5F5' },
+  { value: 'standby',     label: 'Standby',     color: '#FF9800' },
+]
+
+export const WORK_STATUS_MAP = Object.fromEntries(WORK_STATUSES.map(s => [s.value, s]))
+
+// Legacy priority kept for old tasks that still have it
 export const PRIORITIES = [
   { value: 'low',    label: 'Bassa',  color: '#4caf50' },
   { value: 'medium', label: 'Media',  color: '#ff9800' },
   { value: 'high',   label: 'Alta',   color: '#f44336' },
 ]
-
 export const PRIORITY_MAP = Object.fromEntries(PRIORITIES.map(p => [p.value, p]))
 
-// Generates a consistent color from a string
 export function stringToColor(str) {
   const palette = [
     '#5C6BC0','#42A5F5','#26A69A','#66BB6A',
