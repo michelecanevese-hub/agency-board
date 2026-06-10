@@ -12,7 +12,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
-import { EMPLOYEES, STATUSES, stringToColor, getInitials } from '../lib/constants'
+import { EMPLOYEES, WORK_STATUSES, WORK_STATUS_MAP, stringToColor, getInitials } from '../lib/constants'
 
 export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, defaultEmployeeId }) {
   const isNew = !task?.id
