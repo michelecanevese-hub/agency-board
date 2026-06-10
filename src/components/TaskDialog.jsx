@@ -8,10 +8,11 @@ import {
 import CloseIcon from '@mui/icons-material/Close'
 import DeleteIcon from '@mui/icons-material/DeleteOutline'
 import SendIcon from '@mui/icons-material/Send'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
-import { EMPLOYEES, PRIORITIES, stringToColor, getInitials } from '../lib/constants'
+import { EMPLOYEES, STATUSES, stringToColor, getInitials } from '../lib/constants'
 
 export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, defaultEmployeeId }) {
   const isNew = !task?.id
@@ -19,7 +20,7 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
   const [title,       setTitle]       = useState('')
   const [description, setDescription] = useState('')
   const [projectName, setProjectName] = useState('')
-  const [priority,    setPriority]    = useState('medium')
+  const [workStatus,  setWorkStatus]  = useState('in_progress')
   const [dueDate,     setDueDate]     = useState('')
   const [employeeId,  setEmployeeId]  = useState(defaultEmployeeId || EMPLOYEES[0].id)
   const [tab,         setTab]         = useState(0)
@@ -36,12 +37,10 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
     setTitle(task?.title || '')
     setDescription(task?.description || '')
     setProjectName(task?.project_name || '')
-    setPriority(task?.priority || 'medium')
+    setWorkStatus(task?.work_status || 'in_progress')
     setDueDate(task?.due_date || '')
     setEmployeeId(task?.employee_id || defaultEmployeeId || EMPLOYEES[0].id)
-    setTab(0)
-    setComments([])
-    setNewComment('')
+    setTab(0); setComments([]); setNewComment('')
   }, [task, open])
 
   useEffect(() => {
@@ -52,13 +51,11 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
     if (!open) return
     supabase.from('tasks').select('project_name').neq('project_name', null)
       .then(({ data }) => {
-        const unique = [...new Set((data || []).map(r => r.project_name).filter(Boolean))]
-        setProjects(unique)
+        setProjects([...new Set((data || []).map(r => r.project_name).filter(Boolean))])
       })
   }, [open])
 
   async function loadComments() {
-    if (!task?.id) return
     setLoadingCom(true)
     const { data } = await supabase
       .from('comments').select('*').eq('task_id', task.id)
@@ -72,17 +69,14 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
     if (!title.trim()) return
     setSaving(true)
     const payload = {
-      title:        title.trim(),
-      description:  description.trim() || null,
-      project_name: projectName.trim() || null,
-      priority,
-      due_date:     dueDate || null,
-      employee_id:  employeeId,
+      title: title.trim(), description: description.trim() || null,
+      project_name: projectName.trim() || null, work_status:  workStatus,
+      due_date: dueDate || null, employee_id: employeeId,
     }
     let saved
     if (isNew) {
       const { data } = await supabase.from('tasks')
-        .insert([{ ...payload, position: Date.now() }]).select().single()
+        .insert([{ ...payload, position: Date.now(), status: 'active' }]).select().single()
       saved = data
     } else {
       const { data } = await supabase.from('tasks')
@@ -94,20 +88,24 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
   }
 
   async function handleDelete() {
-    if (!task?.id) return
-    if (!confirm('Eliminare questo task?')) return
+    if (!task?.id || !confirm('Eliminare questo task?')) return
     await supabase.from('comments').delete().eq('task_id', task.id)
     await supabase.from('tasks').delete().eq('id', task.id)
     onDeleted(task.id)
+  }
+
+  async function handleMarkDone() {
+    if (!task?.id) return
+    const { data } = await supabase.from('tasks')
+      .update({ status: 'done' }).eq('id', task.id).select().single()
+    onSaved(data)
   }
 
   async function handleSendComment() {
     if (!newComment.trim() || !task?.id) return
     const emp = EMPLOYEES.find(e => e.id === author)
     const { data } = await supabase.from('comments').insert([{
-      task_id:     task.id,
-      author_name: emp?.name || 'Sconosciuto',
-      body:        newComment.trim(),
+      task_id: task.id, author_name: emp?.name || 'Sconosciuto', body: newComment.trim(),
     }]).select().single()
     setComments(c => [...c, data])
     setNewComment('')
@@ -119,6 +117,13 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
         <Typography fontWeight={700}>{isNew ? 'Nuovo task' : 'Modifica task'}</Typography>
         <Box>
+          {!isNew && task?.status !== 'done' && (
+            <Tooltip title="Segna come svolto e archivia">
+              <IconButton onClick={handleMarkDone} size="small" color="success" sx={{ mr: 0.5 }}>
+                <CheckCircleOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           {!isNew && (
             <Tooltip title="Elimina task">
               <IconButton onClick={handleDelete} size="small" color="error" sx={{ mr: 0.5 }}>
@@ -138,31 +143,16 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
       <DialogContent sx={{ pt: 2 }}>
         {tab === 0 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="Titolo task"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              fullWidth autoFocus required
-            />
+            <TextField label="Titolo task" value={title} onChange={e => setTitle(e.target.value)}
+              fullWidth autoFocus required />
 
-            <TextField
-              label="Descrizione"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              fullWidth
-              multiline
-              minRows={2}
-              maxRows={5}
-              placeholder="Aggiungi una descrizione dell'attività…"
-            />
+            <TextField label="Descrizione" value={description} onChange={e => setDescription(e.target.value)}
+              fullWidth multiline minRows={2} maxRows={5}
+              placeholder="Aggiungi una descrizione dell'attività…" />
 
-            <Autocomplete
-              freeSolo
-              options={projects}
-              value={projectName}
+            <Autocomplete freeSolo options={projects} value={projectName}
               onInputChange={(_, v) => setProjectName(v)}
-              renderInput={params => <TextField {...params} label="Progetto" />}
-            />
+              renderInput={params => <TextField {...params} label="Progetto" />} />
 
             <FormControl fullWidth>
               <InputLabel>Assegnato a</InputLabel>
@@ -182,24 +172,19 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
 
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormControl sx={{ flex: 1 }}>
-                <InputLabel>Priorità</InputLabel>
-                <Select value={priority} label="Priorità" onChange={e => setPriority(e.target.value)}>
-                  {PRIORITIES.map(p => (
-                    <MenuItem key={p.value} value={p.value}>
-                      <Chip label={p.label} size="small"
-                        sx={{ bgcolor: p.color + '22', color: p.color, fontWeight: 700 }} />
+                <InputLabel>Stato</InputLabel>
+                <Select value={workStatus} label="Stato lavoro" onChange={e => setWorkStatus(e.target.value)}>
+                  {STATUSES.map(s => (
+                    <MenuItem key={s.value} value={s.value}>
+                      <Chip label={s.label} size="small"
+                        sx={{ bgcolor: s.color + '22', color: s.color, fontWeight: 700 }} />
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-              <TextField
-                label="Scadenza"
-                type="date"
-                value={dueDate}
+              <TextField label="Scadenza" type="date" value={dueDate}
                 onChange={e => setDueDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ flex: 1 }}
-              />
+                InputLabelProps={{ shrink: true }} sx={{ flex: 1 }} />
             </Box>
           </Box>
         )}
@@ -208,9 +193,7 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
           <Box sx={{ display: 'flex', flexDirection: 'column', height: 360 }}>
             <Box sx={{ flex: 1, overflowY: 'auto', mb: 1 }}>
               {loadingCom ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', pt: 4 }}>
-                  <CircularProgress size={24} />
-                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'center', pt: 4 }}><CircularProgress size={24} /></Box>
               ) : comments.length === 0 ? (
                 <Typography variant="body2" color="text.disabled" sx={{ textAlign: 'center', pt: 4 }}>
                   Ancora nessuna nota. Scrivi il primo messaggio!
@@ -230,9 +213,7 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
                             {format(new Date(c.created_at), 'd MMM HH:mm', { locale: it })}
                           </Typography>
                         </Box>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: 0.2 }}>
-                          {c.body}
-                        </Typography>
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: 0.2 }}>{c.body}</Typography>
                       </Box>
                     </Box>
                   )
@@ -260,13 +241,10 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
             </FormControl>
 
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-              <TextField
-                multiline maxRows={3} fullWidth size="small"
-                placeholder="Scrivi una nota…"
-                value={newComment}
+              <TextField multiline maxRows={3} fullWidth size="small"
+                placeholder="Scrivi una nota…" value={newComment}
                 onChange={e => setNewComment(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendComment() } }}
-              />
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendComment() } }} />
               <IconButton color="primary" onClick={handleSendComment} disabled={!newComment.trim()}>
                 <SendIcon />
               </IconButton>
@@ -278,12 +256,8 @@ export default function TaskDialog({ task, open, onClose, onSaved, onDeleted, de
       {tab === 0 && (
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={onClose}>Annulla</Button>
-          <Button
-            onClick={handleSave}
-            variant="contained"
-            disabled={!title.trim() || saving}
-            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : null}
-          >
+          <Button onClick={handleSave} variant="contained" disabled={!title.trim() || saving}
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : null}>
             {isNew ? 'Crea task' : 'Salva modifiche'}
           </Button>
         </DialogActions>
