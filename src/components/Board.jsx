@@ -47,7 +47,7 @@ export default function Board({ onLogout, mode, onToggleMode }) {
   const [snack,          setSnack]          = useState({ open: false, msg: '', sev: 'success' })
   const [drawerOpen,     setDrawerOpen]     = useState(!isMobile && !isTablet)
   const [filterProject,  setFilterProject]  = useState(null)
-  const [filterPriority, setFilterPriority] = useState([])
+  const [filterWorkStatus, setfilterWorkStatus] = useState([])
   const [searchQuery,    setSearchQuery]    = useState('')
   const [mobileEmpIdx,   setMobileEmpIdx]   = useState(0)  // which employee to show on mobile
   const [showMobileFilters, setShowMobileFilters] = useState(false)
@@ -106,7 +106,7 @@ export default function Board({ onLogout, mode, onToggleMode }) {
       }
       return true
     })
-  }, [tasks, filterProject, filterPriority, searchQuery])
+  }, [tasks, filterProject, filterWorkStatus, searchQuery])
 
   const tasksForEmployee = useCallback(
     (empId) => filteredTasks.filter(t => t.employee_id === empId),
